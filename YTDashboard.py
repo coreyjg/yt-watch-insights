@@ -11,6 +11,35 @@ df = pd.read_parquet('output/watch_history.parquet')
 st.title("MY YOUTUBE WATCH HISTORY")
 
 # -----------------------------
+# Sidebar filters
+# -----------------------------
+# Let the user pick a start and end date for filtering the data.
+# Defaults to the full range of available dates in the dataset.
+start, end = st.sidebar.date_input(
+    "Date Range",
+    [df['time'].dt.date.min(), df['time'].dt.date.max()]
+)
+
+# Allow the user to select one or more channels to include.
+# Defaults to all channels present in the DataFrame.
+channels = st.sidebar.multiselect(
+    "Channels",
+    options=df['channel'].unique(),
+    default=df['channel'].unique()
+)
+
+# -----------------------------
+# Apply the filters to the DataFrame
+# -----------------------------
+# 1) Keep only rows whose timestamp (converted to .date) falls between start and end
+# 2) Keep only rows where the 'channel' value is in the user’s selected list
+df = df[
+    (df['time'].dt.date.between(start, end)) &
+    (df['channel'].isin(channels))
+]
+
+
+# -----------------------------
 # Hourly Chart
 # -----------------------------
 # Group by hour_label (e.g., "0:00", "13:00") to count views per hour
