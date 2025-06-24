@@ -11,10 +11,43 @@ df = pd.read_parquet('output/watch_history.parquet')
 st.title("MY YOUTUBE WATCH HISTORY")
 
 # -----------------------------
+# Sidebar filters
+# -----------------------------
+# Let the user pick a start and end date for filtering the data.
+# Defaults to the full range of available dates in the dataset.
+start, end = st.sidebar.date_input(
+    "Date Range",
+    [df['time'].dt.date.min(), df['time'].dt.date.max()]
+)
+
+# Apply date filter first to include all channels for the charts
+df_date_filtered = df[
+    df['time'].dt.date.between(start, end)
+]
+
+# Count views per channel (sorted descending by default)
+channel_counts    = df_date_filtered['channel'].value_counts()
+# Get a list of channels, most-viewed first
+ordered_channels  = channel_counts.index.tolist()
+
+# Allow the user to select one or more channels to include.
+# Defaults to all channels present in the DataFrame.
+selected = st.sidebar.multiselect(
+    "Channels",
+    options=ordered_channels,
+    default=ordered_channels
+)
+
+# Filter the date‐filtered DataFrame by the user’s channel selection
+df_for_charts = df_date_filtered[
+    df_date_filtered['channel'].isin(selected)
+].copy()
+
+# -----------------------------
 # Hourly Chart
 # -----------------------------
 # Group by hour_label (e.g., "0:00", "13:00") to count views per hour
-hourly_counts = df.groupby('hour_label').size()
+hourly_counts = df_for_charts.groupby('hour_label').size()
 
 # Create labels for all 24 hours to ensure consistent ordering
 labels = [f"{h}:00" for h in range(24)]
@@ -39,7 +72,7 @@ st.bar_chart(hourly_counts)
 # -----------------------------
 # Group by day name (e.g., Monday, Tuesday) to count views per weekday
 daily_counts = (
-    df.groupby("day")
+    df_for_charts.groupby("day")
       .size()               # count rows per day
       .reindex([
           'Monday','Tuesday','Wednesday','Thursday',
@@ -60,7 +93,7 @@ st.bar_chart(daily_counts.set_index('day')['count'])
 # Use the timestamp as the index for time-based resampling
 # Resample at month-end frequency and count number of entries per period
 mom_count = (
-    df.set_index('time')
+    df_for_charts.set_index('time')
       .resample('ME')      # use 'ME' (month end) to avoid deprecation warning
       .size()              # count entries in each monthly bucket
       .rename('views')     # name the resulting Series
